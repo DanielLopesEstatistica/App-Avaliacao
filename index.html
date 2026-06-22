@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <link rel="manifest" href="manifest.json">
+  <meta name="theme-color" content="#ffffff">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Avaliação Diária</title>
+
+<style>
+body{
+    font-family:Arial,sans-serif;
+    max-width:500px;
+    margin:auto;
+    padding:20px;
+}
+
+input,button{
+    width:100%;
+    padding:12px;
+    margin:6px 0;
+    box-sizing:border-box;
+}
+
+.estrelas button{
+    width:auto;
+    font-size:40px;
+    margin:5px;
+}
+
+.msg{
+    border:1px solid #ccc;
+    padding:10px;
+    margin:10px 0;
+}
+</style>
+</head>
+<body>
+
+<div id="cadastro">
+
+<h2>Primeiro acesso</h2>
+
+<input id="nome" placeholder="Seu nome">
+
+<input id="grupo" placeholder="Código do casal">
+
+<button onclick="salvarCadastro()">
+Salvar
+</button>
+
+</div>
+
+<div id="app" style="display:none">
+
+<h2 id="titulo"></h2>
+
+<p>Como foi hoje?</p>
+
+<div class="estrelas">
+<button onclick="avaliar(1)">⭐</button>
+<button onclick="avaliar(2)">⭐⭐</button>
+<button onclick="avaliar(3)">⭐⭐⭐</button>
+<button onclick="avaliar(4)">⭐⭐⭐⭐</button>
+<button onclick="avaliar(5)">⭐⭐⭐⭐⭐</button>
+</div>
+
+<hr>
+
+<h3>Recebidas</h3>
+
+<div id="mensagens"></div>
+
+</div>
+
+<script>
+
+const URL = "https://twilight-grass-fffb.d236081.workers.dev/";
+
+function iniciar(){
+
+    const nome = localStorage.getItem("nome");
+    const grupo = localStorage.getItem("grupo");
+
+    if(!nome || !grupo){
+        document.getElementById("cadastro").style.display="block";
+        document.getElementById("app").style.display="none";
+        return;
+    }
+
+    document.getElementById("cadastro").style.display="none";
+    document.getElementById("app").style.display="block";
+
+    document.getElementById("titulo").innerText =
+        "Olá, " + nome;
+
+    buscarMensagens();
+
+    setInterval(
+        buscarMensagens,
+        30000
+    );
+}
+
+function salvarCadastro(){
+
+    localStorage.setItem(
+        "nome",
+        document.getElementById("nome").value
+    );
+
+    localStorage.setItem(
+        "grupo",
+        document.getElementById("grupo").value
+    );
+
+    iniciar();
+}
+
+function avaliar(nota){
+
+  fetch(URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      grupo: localStorage.getItem("grupo"),
+      remetente: localStorage.getItem("nome"),
+      nota: nota
+    })
+  });
+
+}
+
+function buscarMensagens(){
+
+  const grupo = localStorage.getItem("grupo");
+  const usuario = localStorage.getItem("nome");
+
+  fetch(
+    URL +
+    "?grupo=" + encodeURIComponent(grupo) +
+    "&usuario=" + encodeURIComponent(usuario)
+  )
+  .then(r => r.json())
+  .then(dados => {
+
+    const divMsg = document.getElementById("mensagens");
+
+    dados.forEach(msg => {
+
+      const el = document.createElement("div");
+      el.className = "msg";
+
+      el.innerHTML =
+        "<b>" + msg.remetente + "</b><br>" +
+        msg.nota + " estrela(s)";
+
+      divMsg.prepend(el);
+
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification("Nova avaliação", {
+          body: msg.remetente + " enviou " + msg.nota + " estrela(s)"
+        });
+      }
+
+    });
+
+  })
+  .catch(err => {
+    console.error("Erro ao buscar mensagens:", err);
+  });
+
+}
+
+iniciar();
+
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("./sw.js");
+}
+</script>
+
+</body>
+</html>
+
